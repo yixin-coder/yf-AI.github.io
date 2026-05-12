@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的專案空間</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --btn-gradient: linear-gradient(to right, #6a11cb 0%, #2575fc 100%);
+            --text-light: #ffffff;
+            --glass-bg: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: var(--primary-gradient);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 裝飾用的動態背景圓圈 */
+        .circle {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            z-index: 0;
+            animation: float 15s infinite ease-in-out;
+        }
+        .circle-1 { width: 300px; height: 300px; top: -100px; left: -50px; }
+        .circle-2 { width: 200px; height: 200px; bottom: -50px; right: -50px; animation-delay: -5s; }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-40px) rotate(10deg); }
+        }
+
+        .container {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            max-width: 450px;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        h1 {
+            color: var(--text-light);
+            font-size: 2.2rem;
+            margin-bottom: 2.5rem;
+            text-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            letter-spacing: 1px;
+        }
+
+        .nav-links {
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+        }
+
+        .nav-button {
+            position: relative;
+            display: flex;
+            align-items: center;
+            padding: 1.2rem 1.5rem;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            text-decoration: none;
+            color: var(--text-light);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            overflow: hidden;
+        }
+
+        /* 按鈕內的漸層滑過效果 */
+        .nav-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: var(--btn-gradient);
+            transition: all 0.4s ease;
+            z-index: -1;
+        }
+
+        .nav-button:hover {
+            transform: scale(1.05) rotate(1deg);
+            border-color: rgba(255, 255, 255, 0.5);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+        }
+
+        .nav-button:hover::before {
+            left: 0;
+        }
+
+        .icon-box {
+            font-size: 1.8rem;
+            margin-right: 1.2rem;
+            filter: drop-shadow(0 2px 5px rgba(0,0,0,0.2));
+        }
+
+        .btn-text-group {
+            text-align: left;
+            flex-grow: 1;
+        }
+
+        .btn-title {
+            display: block;
+            font-weight: 700;
+            font-size: 1.15rem;
+            margin-bottom: 2px;
+        }
+
+        .btn-desc {
+            display: block;
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+
+        .arrow {
+            font-size: 1.2rem;
+            transition: transform 0.3s ease;
+        }
+
+        .nav-button:hover .arrow {
+            transform: translateX(8px);
+        }
+
+        /* 點擊時的縮放感 */
+        .nav-button:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 背景裝飾 -->
+    <div class="circle circle-1"></div>
+    <div class="circle circle-2"></div>
+
+    <div class="container">
+        <h1>探索空間</h1>
+        
+        <nav class="nav-links">
+            <a href="15.html" class="nav-button">
+                <span class="icon-box">🎨</span>
+                <div class="btn-text-group">
+                    <span class="btn-title">照片編輯器</span>
+                    <span class="btn-desc">發揮創意，修飾精彩瞬間</span>
+                </div>
+                <span class="arrow">➔</span>
+            </a>
+
+            <a href="youbike.html" class="nav-button">
+                <span class="icon-box">🚲</span>
+                <div class="btn-text-group">
+                    <span class="btn-title">YouBike 查詢</span>
+                    <span class="btn-desc">快速找到附近的單車站點</span>
+                </div>
+                <span class="arrow">➔</span>
+            </a>
+
+            <a href="bean2048.html" class="nav-button">
+                <span class="icon-box">🌱</span>
+                <div class="btn-text-group">
+                    <span class="btn-title">豌豆農場 2048</span>
+                    <span class="btn-desc">合成豌豆，打造夢想農場</span>
+                </div>
+                <span class="arrow">➔</span>
+            </a>
+        </nav>
+    </div>
+
+    <script>
+        // 加入簡單的隨機傾斜效果增強趣味性
+        document.querySelectorAll('.nav-button').forEach(btn => {
+            btn.addEventListener('mousemove', (e) => {
+                const rect = btn.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                // 根據滑鼠位置計算輕微傾斜
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                const rotateX = (y - centerY) / 10;
+                const rotateY = (centerX - x) / 10;
+                
+                btn.style.transform = `perspective(1000px) scale(1.05) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+            });
+
+            btn.addEventListener('mouseleave', () => {
+                btn.style.transform = '';
+            });
+        });
+    </script>
+</body>
+</html>
