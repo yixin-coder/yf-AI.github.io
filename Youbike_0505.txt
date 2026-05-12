@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>夢幻 YouBike 冒險者儀表板</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --fantasy-purple: #a29bfe;
+            --fantasy-pink: #fab1a0;
+            --adventure-bg: #f3f0ff;
+            --card-glass: rgba(255, 255, 255, 0.9);
+            --accent-dark: #6c5ce7;
+            --text-color: #4834d4;
+        }
+
+        body {
+            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+            background-color: var(--adventure-bg);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .header-section {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            color: var(--accent-dark);
+            text-shadow: 2px 2px 0px white;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, var(--fantasy-purple), var(--accent-dark));
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(108, 92, 231, 0.4);
+            filter: brightness(1.1);
+        }
+
+        /* 地圖容器 */
+        #map-container {
+            width: 100%;
+            max-width: 1000px;
+            height: 450px;
+            border-radius: 30px;
+            overflow: hidden;
+            border: 6px solid white;
+            box-shadow: 0 15px 35px rgba(162, 155, 254, 0.2);
+            position: relative;
+            margin-bottom: 30px;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* 關鍵：地圖粉紫色調濾鏡 */
+        .leaflet-tile-pane {
+            filter: hue-rotate(240deg) saturate(85%) brightness(1.05) contrast(0.95);
+        }
+
+        /* 資訊卡片區 */
+        .dashboard-grid {
+            width: 100%;
+            max-width: 1000px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 15px;
+        }
+
+        .card {
+            background: var(--card-glass);
+            border-radius: 20px;
+            padding: 15px;
+            border: 2px solid white;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+            transition: transform 0.3s ease;
+            cursor: pointer;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            border-color: var(--fantasy-pink);
+        }
+
+        .card-title {
+            font-weight: bold;
+            font-size: 1rem;
+            margin-bottom: 10px;
+            color: var(--accent-dark);
+            border-bottom: 1px dashed var(--fantasy-purple);
+            padding-bottom: 5px;
+        }
+
+        .card-info {
+            font-size: 0.85rem;
+            margin: 5px 0;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .card-time {
+            font-size: 0.75rem;
+            color: #888;
+            margin-top: 10px;
+            text-align: right;
+        }
+
+        .badge {
+            background: var(--fantasy-purple);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+        }
+
+        .dist-badge {
+            font-size: 0.75rem;
+            background: var(--adventure-bg);
+            color: var(--accent-dark);
+            padding: 2px 6px;
+            border-radius: 5px;
+            margin-bottom: 5px;
+            display: inline-block;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(243, 240, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            display: none;
+        }
+
+        .status-msg {
+            margin-bottom: 15px;
+            font-weight: bold;
+            color: var(--accent-dark);
+        }
+
+        .auto-refresh-tag {
+            font-size: 0.7rem;
+            color: #aaa;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="loading-overlay" id="loader">
+        <div class="status-msg">🔮 正在讀取冒險地圖數據...</div>
+    </div>
+
+    <div class="header-section">
+        <h1>✨ YouBike 夢幻冒險儀表板</h1>
+        <div id="location-status" class="status-msg">正在尋找您的位置...</div>
+        
+        <div class="button-group">
+            <button class="btn" onclick="refreshData()">
+                <span>🔄</span> 重新整理資料
+            </button>
+            <button class="btn" onclick="centerToUser()">
+                <span>📍</span> 回到中心點
+            </button>
+        </div>
+        <div class="auto-refresh-tag">⏰ 每 30 秒自動更新數據</div>
+    </div>
+
+    <div id="map-container">
+        <div id="map"></div>
+    </div>
+
+    <h2 style="color: var(--accent-dark); align-self: flex-start; max-width: 1000px; margin: 0 auto 15px;">📜 附近 20 個冒險站點</h2>
+    <div class="dashboard-grid" id="card-list"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        let map;
+        let userMarker;
+        let markersGroup = [];
+        let userLocation = [25.0408, 121.5160]; 
+        let allStations = [];
+        const API_URL = 'https://tcgbusfs.blob.core.windows.net/dotapp/youbike/v2/youbike_immediate.json';
+
+        function initMap() {
+            map = L.map('map', { zoomControl: false }).setView(userLocation, 15);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            
+            map.on('click', (e) => {
+                updateUserMarker(e.latlng.lat, e.latlng.lng, "手動釘選位置");
+            });
+        }
+
+        function updateUserMarker(lat, lng, label) {
+            userLocation = [lat, lng];
+            if (userMarker) {
+                userMarker.setLatLng(userLocation);
+            } else {
+                userMarker = L.circleMarker(userLocation, {
+                    radius: 12, fillColor: "#fab1a0", color: "#fff", weight: 3, fillOpacity: 0.9
+                }).addTo(map);
+            }
+            userMarker.bindPopup(`<b>${label}</b>`).openPopup();
+            updateNearbyUI();
+            document.getElementById('location-status').innerHTML = `📍 目前位置：${label}`;
+        }
+
+        async function fetchData() {
+            // 只有手動重新整理時顯示 loader，自動重新整理則靜默進行
+            try {
+                const response = await fetch(API_URL);
+                allStations = await response.json();
+                updateNearbyUI();
+            } catch (error) {
+                console.error("Fetch Error:", error);
+            }
+        }
+
+        function updateNearbyUI() {
+            if (!allStations.length) return;
+
+            const stationsWithDist = allStations.map(s => ({
+                ...s,
+                distance: getDistance(userLocation[0], userLocation[1], s.latitude, s.longitude)
+            }));
+
+            const nearby20 = stationsWithDist.sort((a, b) => a.distance - b.distance).slice(0, 20);
+
+            markersGroup.forEach(m => map.removeLayer(m));
+            markersGroup = [];
+
+            nearby20.forEach(s => {
+                const m = L.circleMarker([s.latitude, s.longitude], {
+                    radius: 8, fillColor: "#a29bfe", color: "#6c5ce7", weight: 2, fillOpacity: 0.7
+                }).addTo(map);
+
+                // 車位總數設定為 available_return_bikes + available_rent_bikes
+                const totalCalculated = (parseInt(s.available_return_bikes) || 0) + (parseInt(s.available_rent_bikes) || 0);
+
+                m.bindPopup(`
+                    <b>${s.sna.replace('YouBike2.0_', '')}</b><br>
+                    🚲 可借車輛: ${s.available_rent_bikes}<br>
+                    🅿️ 車位總數: ${totalCalculated}<br>
+                    🕒 ${s.updateTime}
+                `);
+                markersGroup.push(m);
+            });
+
+            renderCards(nearby20);
+        }
+
+        function renderCards(data) {
+            const container = document.getElementById('card-list');
+            container.innerHTML = '';
+            data.forEach(s => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                const distText = s.distance < 1 ? `${(s.distance * 1000).toFixed(0)}m` : `${s.distance.toFixed(2)}km`;
+                
+                // 車位總數設定為 available_return_bikes + available_rent_bikes
+                const totalCalculated = (parseInt(s.available_return_bikes) || 0) + (parseInt(s.available_rent_bikes) || 0);
+
+                card.innerHTML = `
+                    <div class="dist-badge">🏃 距離 ${distText}</div>
+                    <div class="card-title">${s.sna.replace('YouBike2.0_', '')}</div>
+                    <div class="card-info"><span>🚲 可借車輛</span><span class="badge">${s.available_rent_bikes}</span></div>
+                    <div class="card-info"><span>🅿️ 車位總數</span><span>${totalCalculated}</span></div>
+                    <div class="card-time">🕒 ${s.updateTime}</div>
+                `;
+                card.onclick = () => map.flyTo([s.latitude, s.longitude], 17);
+                container.appendChild(card);
+            });
+        }
+
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2-lat1)*Math.PI/180;
+            const dLon = (lon2-lon1)*Math.PI/180;
+            const a = Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+
+        function refreshData() { 
+            document.getElementById('loader').style.display = 'flex';
+            fetchData().finally(() => {
+                document.getElementById('loader').style.display = 'none';
+            });
+        }
+
+        function centerToUser() { map.flyTo(userLocation, 16); }
+
+        window.onload = () => {
+            initMap();
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    p => updateUserMarker(p.coords.latitude, p.coords.longitude, "您的定位點"),
+                    () => updateUserMarker(userLocation[0], userLocation[1], "預設點 (請手動點擊地圖)")
+                );
+            }
+            fetchData();
+
+            // 每 30 秒自動重新整理數據 (每 30000 毫秒)
+            setInterval(() => {
+                fetchData();
+            }, 30000);
+        };
+    </script>
+</body>
+</html>
