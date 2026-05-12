@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>豌豆農場</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@700;900&display=swap');
+
+        body {
+            background-color: #f7f9f2;
+            font-family: 'Inter', "Microsoft JhengHei", sans-serif;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        .game-container {
+            position: relative;
+            width: 400px;
+            height: 400px;
+            background-color: #8c967a;
+            border-radius: 24px;
+            padding: 15px;
+            box-sizing: border-box;
+            user-select: none;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1), inset 0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+            gap: 15px;
+            width: 100%;
+            height: 100%;
+        }
+
+        .grid-cell {
+            width: 81.25px;
+            height: 81.25px;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+        }
+
+        .tile-container {
+            position: absolute;
+            top: 15px; left: 15px; right: 15px; bottom: 15px;
+            pointer-events: none;
+        }
+
+        .tile {
+            position: absolute;
+            width: 81.25px;
+            height: 81.25px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 125ms cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 10;
+            will-change: transform;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.12);
+        }
+
+        .pea {
+            border-radius: 50%;
+            box-shadow: 
+                inset -3px -3px 8px rgba(0,0,0,0.25),
+                inset 3px 3px 8px rgba(255,255,255,0.45);
+            transition: all 200ms ease;
+            position: relative;
+            z-index: 5;
+        }
+
+        /* 2-128 檸檬黃綠色階優化 */
+        .tile-2 { background: #f9fbe7; }    
+        .tile-4 { background: #f0f4c3; }    
+        .tile-8 { background: #dce775; }    
+        .tile-16 { background: #cddc39; }   
+        .tile-32 { background: #afb42b; }   
+        .tile-64 { background: #689f38; }   
+        .tile-128 { background: #33691e; }  
+
+        /* 256 金屬寶石質感 */
+        .tile-256 { 
+            background: linear-gradient(135deg, #1b3a10 0%, #aed581 45%, #2e5120 55%, #1b3a10 100%);
+            background-size: 200% 200%;
+            animation: metalShine 3s linear infinite;
+            border: 2px solid rgba(255,255,255,0.3);
+            box-shadow: 0 0 25px rgba(74, 124, 68, 0.5);
+        }
+
+        @keyframes metalShine {
+            0% { background-position: 0% 0%; }
+            100% { background-position: 200% 200%; }
+        }
+
+        .tile-256 .pea {
+            background: radial-gradient(circle at 30% 30%, #f0f4c3, #689f38);
+            box-shadow: 0 0 15px rgba(255,255,255,0.6);
+        }
+
+        .tile-new { animation: appear 180ms ease-out forwards; transition: none !important; }
+        .tile-merged { z-index: 30; animation: pop 200ms ease-in-out; }
+
+        @keyframes appear {
+            0% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0); }
+            100% { opacity: 1; transform: translate(var(--tx), var(--ty)) scale(1); }
+        }
+
+        @keyframes pop {
+            0% { transform: translate(var(--tx), var(--ty)) scale(1); }
+            50% { transform: translate(var(--tx), var(--ty)) scale(1.18); }
+            100% { transform: translate(var(--tx), var(--ty)) scale(1); }
+        }
+
+        /* 覆蓋層 */
+        .overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255, 255, 255, 0.96);
+            z-index: 200;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 24px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            padding: 20px;
+        }
+
+        .overlay.active { display: flex; animation: fadeIn 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+
+        .win-text-glow {
+            text-shadow: 0 4px 10px rgba(46, 81, 32, 0.2);
+            animation: textFloat 3s ease-in-out infinite;
+        }
+
+        @keyframes textFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-12px); }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen">
+
+    <div class="flex flex-col gap-6 items-center px-4">
+        <div class="flex justify-between items-end w-full max-w-[400px]">
+            <div>
+                <h1 class="text-4xl font-black text-[#4d5a3a] leading-none tracking-tighter">豌豆農場</h1>
+                <span class="text-[#8c967a] font-bold text-xs tracking-widest uppercase">Premium Edition</span>
+            </div>
+            <div class="score-box bg-[#7a8668] text-white px-5 py-2 rounded-xl shadow-md min-w-[100px] text-center">
+                <span class="text-[10px] block font-black uppercase opacity-60">Score</span>
+                <span id="score" class="text-2xl font-black tracking-tight">0</span>
+            </div>
+        </div>
+
+        <div class="game-container" id="game-container">
+            <div class="grid-container">
+                <script>for(let i=0; i<16; i++) document.write('<div class="grid-cell"></div>');</script>
+            </div>
+            <div id="tile-container" class="tile-container"></div>
+            
+            <!-- 遊戲結束畫面 -->
+            <div id="game-over" class="overlay">
+                <h2 class="text-4xl font-black text-[#5c6b45] mb-6">作物歉收...</h2>
+                <p class="text-[#8c967a] font-bold mb-6">農場已經沒有多餘的空間了</p>
+                <button onclick="resetGame()" class="bg-[#5c6b45] text-white px-10 py-3 rounded-full font-bold shadow-lg hover:brightness-110 active:scale-95 transition-all">重新播種</button>
+            </div>
+
+            <!-- 勝利畫面 -->
+            <div id="game-win" class="overlay">
+                <div class="text-7xl mb-6">🫛</div>
+                <h2 class="text-4xl font-black text-[#2e5120] mb-2 win-text-glow">豐收大吉！</h2>
+                <h3 class="text-xl font-bold text-[#4a7c44] mb-10 leading-relaxed">恭喜種出超大豌豆！</h3>
+                <button onclick="continueGame()" class="bg-[#2e5120] text-white px-12 py-4 rounded-full font-bold shadow-xl hover:bg-[#1b3a10] active:scale-95 transition-all">繼續挑戰</button>
+            </div>
+        </div>
+        
+        <button onclick="resetGame()" class="text-[#8c967a] font-bold hover:text-[#4d5a3a] transition-colors flex items-center gap-2 text-sm bg-white/50 px-4 py-2 rounded-full shadow-sm">
+            ↺ 清除果園重來
+        </button>
+    </div>
+
+    <script>
+        const GRID_SIZE = 4;
+        const CELL_SIZE = 81.25;
+        const GAP = 15;
+        const WINNING_SCORE = 256;
+
+        let board = [];
+        let score = 0;
+        let gameActive = true;
+        let hasWon = false;
+
+        const tileContainer = document.getElementById('tile-container');
+        const scoreDisplay = document.getElementById('score');
+        const gameOverDisplay = document.getElementById('game-over');
+        const gameWinDisplay = document.getElementById('game-win');
+
+        function initBoard() {
+            board = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(null));
+            score = 0;
+            scoreDisplay.innerText = 0;
+            gameActive = true;
+            hasWon = false;
+            gameOverDisplay.classList.remove('active');
+            gameWinDisplay.classList.remove('active');
+            tileContainer.innerHTML = '';
+            addRandomTile();
+            addRandomTile();
+            renderTiles();
+        }
+
+        function addRandomTile() {
+            const emptyCells = [];
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    if (!board[r][c]) emptyCells.push({ r, c });
+                }
+            }
+            if (emptyCells.length > 0) {
+                const { r, c } = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+                board[r][c] = {
+                    value: Math.random() < 0.9 ? 2 : 4,
+                    r, c,
+                    id: Math.random().toString(36).substr(2, 9),
+                    isNew: true
+                };
+            }
+        }
+
+        function getPeaSize(value) {
+            const minSize = 24;
+            const maxSize = 72;
+            const factor = Math.min(Math.log2(value), 8) / 8;
+            return minSize + factor * (maxSize - minSize);
+        }
+
+        function renderTiles() {
+            const currentIds = new Set();
+            board.forEach(row => row.forEach(tile => {
+                if (tile) {
+                    currentIds.add(tile.id);
+                    updateTileDOM(tile);
+                    if (tile.mergedFrom) {
+                        tile.mergedFrom.forEach(oldTile => updateTileDOM(oldTile, true));
+                    }
+                }
+            }));
+            document.querySelectorAll('.tile').forEach(dom => {
+                if (!currentIds.has(dom.dataset.id) && !dom.dataset.merging) {
+                    dom.remove();
+                }
+            });
+        }
+
+        function updateTileDOM(tile, isOld = false) {
+            let el = document.querySelector(`[data-id="${tile.id}"]`);
+            const x = tile.c * (CELL_SIZE + GAP);
+            const y = tile.r * (CELL_SIZE + GAP);
+
+            if (!el) {
+                el = document.createElement('div');
+                el.className = 'tile';
+                el.dataset.id = tile.id;
+                el.innerHTML = '<div class="pea"></div>';
+                el.style.transform = `translate(${x}px, ${y}px)`;
+                el.style.setProperty('--tx', `${x}px`);
+                el.style.setProperty('--ty', `${y}px`);
+                tileContainer.appendChild(el);
+            }
+
+            const pea = el.querySelector('.pea');
+            const size = getPeaSize(tile.value);
+            pea.style.width = `${size}px`;
+            pea.style.height = `${size}px`;
+            pea.style.background = getPeaColor(tile.value);
+
+            el.style.setProperty('--tx', `${x}px`);
+            el.style.setProperty('--ty', `${y}px`);
+            
+            if (!tile.isNew) el.style.transform = `translate(${x}px, ${y}px)`;
+
+            el.className = `tile tile-${Math.min(tile.value, 256)}`;
+            if (tile.isNew) el.classList.add('tile-new');
+            if (tile.mergedFrom && !isOld) el.classList.add('tile-merged');
+
+            if (isOld) {
+                el.dataset.merging = "true";
+                el.style.zIndex = "5";
+                el.style.transform = `translate(${x}px, ${y}px)`;
+                setTimeout(() => el.remove(), 120);
+            }
+            tile.isNew = false;
+        }
+
+        function getPeaColor(value) {
+            const colors = {
+                2: '#cddc39', 4: '#afb42b', 8: '#9ccc65', 
+                16: '#8bc34a', 32: '#7cb342', 64: '#689f38', 
+                128: '#558b2f', 256: '#f9fbe7'
+            };
+            return colors[value] || '#33691e';
+        }
+
+        function triggerWinEffect() {
+            hasWon = true;
+            setTimeout(() => {
+                gameWinDisplay.classList.add('active');
+            }, 500);
+        }
+
+        function move(direction) {
+            if (!gameActive) return;
+            let moved = false;
+            const newBoard = JSON.parse(JSON.stringify(board));
+            newBoard.forEach(row => row.forEach(t => { if(t) t.mergedFrom = null; }));
+
+            const rotate = (times) => {
+                for (let t = 0; t < times; t++) {
+                    const temp = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(null));
+                    for (let r = 0; r < GRID_SIZE; r++) {
+                        for (let c = 0; c < GRID_SIZE; c++) {
+                            temp[c][GRID_SIZE - 1 - r] = newBoard[r][c];
+                        }
+                    }
+                    for (let r = 0; r < GRID_SIZE; r++) {
+                        for (let c = 0; c < GRID_SIZE; c++) {
+                            newBoard[r][c] = temp[r][c];
+                            if(newBoard[r][c]) { newBoard[r][c].r = r; newBoard[r][c].c = c; }
+                        }
+                    }
+                }
+            };
+
+            const rotations = { 'ArrowLeft': 0, 'ArrowUp': 3, 'ArrowRight': 2, 'ArrowDown': 1 };
+            const rot = rotations[direction];
+            if (rot === undefined) return;
+            rotate(rot);
+
+            for (let r = 0; r < GRID_SIZE; r++) {
+                let row = newBoard[r].filter(t => t !== null);
+                for (let i = 0; i < row.length - 1; i++) {
+                    if (row[i].value === row[i + 1].value) {
+                        const val = row[i].value * 2;
+                        const o1 = row[i], o2 = row[i + 1];
+                        row.splice(i, 2, {
+                            value: val, r, c: i,
+                            id: Math.random().toString(36).substr(2, 9),
+                            mergedFrom: [o1, o2]
+                        });
+                        score += val;
+                        scoreDisplay.innerText = score;
+                        moved = true;
+                        if (val === WINNING_SCORE && !hasWon) triggerWinEffect();
+                    }
+                }
+                const newRow = Array(GRID_SIZE).fill(null);
+                for (let i = 0; i < row.length; i++) {
+                    if (!newBoard[r][i] || newBoard[r][i].id !== row[i].id) moved = true;
+                    newRow[i] = row[i];
+                    newRow[i].r = r; newRow[i].c = i;
+                    if (newRow[i].mergedFrom) newRow[i].mergedFrom.forEach(ot => { ot.r = r; ot.c = i; });
+                }
+                newBoard[r] = newRow;
+            }
+            rotate((4 - rot) % 4);
+
+            if (moved) {
+                board = newBoard;
+                addRandomTile();
+                renderTiles();
+                // 每次移動後檢查是否遊戲結束
+                if (isGameOver()) {
+                    gameActive = false;
+                    setTimeout(() => { 
+                        // 只有在還沒贏或者贏了但已繼續挑戰的情況下顯示
+                        if(!hasWon || gameWinDisplay.classList.contains('active') === false) {
+                            gameOverDisplay.classList.add('active'); 
+                        }
+                    }, 600);
+                }
+            }
+        }
+
+        function isGameOver() {
+            // 1. 檢查是否有空格
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    if (!board[r][c]) return false;
+                }
+            }
+            
+            // 2. 檢查水平方向是否有可合併的
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE - 1; c++) {
+                    if (board[r][c].value === board[r][c + 1].value) return false;
+                }
+            }
+            
+            // 3. 檢查垂直方向是否有可合併的
+            for (let c = 0; c < GRID_SIZE; c++) {
+                for (let r = 0; r < GRID_SIZE - 1; r++) {
+                    if (board[r][c].value === board[r + 1][c].value) return false;
+                }
+            }
+            
+            // 以上都沒有，則遊戲結束
+            return true;
+        }
+
+        function continueGame() { 
+            gameWinDisplay.classList.remove('active'); 
+            gameActive = true; 
+        }
+        function resetGame() { initBoard(); }
+
+        window.addEventListener('keydown', (e) => {
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                e.preventDefault();
+                move(e.key);
+            }
+        });
+        window.onload = initBoard;
+    </script>
+</body>
+</html>
